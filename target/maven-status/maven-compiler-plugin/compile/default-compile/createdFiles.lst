@@ -1,0 +1,16 @@
+com\news\service\model\PageResult.class
+com\news\service\model\SearchResult.class
+com\news\service\NewsServiceApplication.class
+com\news\service\controller\SearchController.class
+com\news\service\service\SearchServiceImpl.class
+com\news\service\controller\ConfigController.class
+com\news\service\model\DatabaseConfig.class
+com\news\service\config\AppConfig.class
+com\news\service\controller\HomeController.class
+com\news\service\service\SearchService.class
+com\news\service\model\SearchRequest.class
+com\news\service\config\SwaggerConfig.class
+com\news\service\service\ConfigServiceImpl.class
+com\news\service\service\ConfigService.class
+com\news\service\model\ApiResponse.class
+com\news\service\model\DatabaseInfo.class

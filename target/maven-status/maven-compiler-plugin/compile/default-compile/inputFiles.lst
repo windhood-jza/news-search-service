@@ -1,0 +1,16 @@
+D:\DEV\news\src\main\java\com\news\service\model\ApiResponse.java
+D:\DEV\news\src\main\java\com\news\service\model\PageResult.java
+D:\DEV\news\src\main\java\com\news\service\model\SearchRequest.java
+D:\DEV\news\src\main\java\com\news\service\service\SearchService.java
+D:\DEV\news\src\main\java\com\news\service\service\ConfigService.java
+D:\DEV\news\src\main\java\com\news\service\NewsServiceApplication.java
+D:\DEV\news\src\main\java\com\news\service\config\AppConfig.java
+D:\DEV\news\src\main\java\com\news\service\config\SwaggerConfig.java
+D:\DEV\news\src\main\java\com\news\service\controller\HomeController.java
+D:\DEV\news\src\main\java\com\news\service\model\SearchResult.java
+D:\DEV\news\src\main\java\com\news\service\service\ConfigServiceImpl.java
+D:\DEV\news\src\main\java\com\news\service\service\SearchServiceImpl.java
+D:\DEV\news\src\main\java\com\news\service\controller\ConfigController.java
+D:\DEV\news\src\main\java\com\news\service\model\DatabaseConfig.java
+D:\DEV\news\src\main\java\com\news\service\controller\SearchController.java
+D:\DEV\news\src\main\java\com\news\service\model\DatabaseInfo.java

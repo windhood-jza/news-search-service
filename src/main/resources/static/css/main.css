@@ -1,0 +1,94 @@
+/* 基础样式 */
+body {
+    background-color: #f8f9fa;
+    color: #212529;
+}
+
+.container {
+    max-width: 1200px;
+}
+
+/* 网站头部 */
+header {
+    background-color: #fff;
+}
+
+/* 数据库状态指示器 */
+.db-status-indicator {
+    display: flex;
+    align-items: center;
+}
+
+/* 卡片样式 */
+.card {
+    margin-bottom: 1.5rem;
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+/* 搜索结果样式 */
+#searchResults .card {
+    transition: transform 0.2s;
+}
+
+#searchResults .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* 分页样式 */
+.pagination .page-link {
+    color: #0d6efd;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+/* 表单样式 */
+.form-control:focus, .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* 按钮间距 */
+.btn-group .btn + .btn,
+.btn-group .btn + .btn-group,
+.btn-group .btn-group + .btn,
+.btn-group .btn-group + .btn-group {
+    margin-left: 0.25rem;
+}
+
+/* 首页功能卡片 */
+.feature-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.feature-card .card-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.feature-card .card-text {
+    flex-grow: 1;
+}
+
+/* 响应式调整 */
+@media (max-width: 767.98px) {
+    .db-status-indicator {
+        margin-bottom: 1rem;
+    }
+    
+    .nav {
+        justify-content: center;
+    }
+} 
