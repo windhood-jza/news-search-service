@@ -1,34 +1,42 @@
 package com.news.service.model;
 
-import lombok.Data;
+public class ApiResponse {
+    private boolean success;
+    private String message;
+    private Object data;
 
-/**
- * API响应封装类
- * @param <T> 响应数据类型
- */
-@Data
-public class ApiResponse<T> {
-    private boolean success;  // 是否成功
-    private String message;   // 响应消息
-    private T data;          // 响应数据
-    
-    /**
-     * 创建成功响应
-     */
-    public static <T> ApiResponse<T> success(T data) {
-        ApiResponse<T> response = new ApiResponse<>();
-        response.setSuccess(true);
-        response.setData(data);
-        return response;
+    public ApiResponse(boolean success, String message) {
+        this.success = success;
+        this.message = message;
     }
-    
-    /**
-     * 创建失败响应
-     */
-    public static <T> ApiResponse<T> error(String message) {
-        ApiResponse<T> response = new ApiResponse<>();
-        response.setSuccess(false);
-        response.setMessage(message);
-        return response;
+
+    public ApiResponse(boolean success, String message, Object data) {
+        this.success = success;
+        this.message = message;
+        this.data = data;
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public void setSuccess(boolean success) {
+        this.success = success;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public Object getData() {
+        return data;
+    }
+
+    public void setData(Object data) {
+        this.data = data;
     }
 }
