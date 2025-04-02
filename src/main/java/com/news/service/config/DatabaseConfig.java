@@ -1,181 +1,142 @@
 package com.news.service.config;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.core.JdbcOperations;
-import org.springframework.jdbc.core.ResultSetExtractor;
-import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import javax.sql.DataSource;
-import java.io.PrintWriter;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Logger;
+import java.util.Properties;
 
 /**
  * 数据库配置类
- * 用于条件化创建数据库相关的 Bean
  */
+@Slf4j
 @Configuration
 public class DatabaseConfig {
-
-    /**
-     * 创建一个空的数据源
-     * 在数据源禁用时使用
-     */
-    @Bean
-    @Primary
-    @ConditionalOnProperty(name = "spring.datasource.enabled", havingValue = "false", matchIfMissing = true)
-    public DataSource emptyDataSource() {
-        return new EmptyDataSource();
-    }
-
-    /**
-     * 创建 JdbcTemplate
-     * 仅在数据源启用时创建
-     */
-    @Bean
-    @ConditionalOnProperty(name = "spring.datasource.enabled", havingValue = "true")
-    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
-        return new JdbcTemplate(dataSource);
-    }
-
-    /**
-     * 创建 NamedParameterJdbcTemplate
-     * 仅在数据源启用时创建
-     */
-    @Bean
-    @ConditionalOnProperty(name = "spring.datasource.enabled", havingValue = "true")
-    public NamedParameterJdbcTemplate namedParameterJdbcTemplate(JdbcTemplate jdbcTemplate) {
-        return new NamedParameterJdbcTemplate(jdbcTemplate);
-    }
-
-    /**
-     * 创建一个空的 JdbcTemplate 实现
-     * 在数据源禁用时创建
-     */
-    @Bean
-    @Primary
-    @ConditionalOnProperty(name = "spring.datasource.enabled", havingValue = "false", matchIfMissing = true)
-    public JdbcTemplate emptyJdbcTemplate(DataSource emptyDataSource) {
-        return new EmptyJdbcTemplate(emptyDataSource);
-    }
-
-    /**
-     * 创建一个空的 NamedParameterJdbcTemplate
-     * 在数据源禁用时创建
-     */
-    @Bean
-    @Primary
-    @ConditionalOnProperty(name = "spring.datasource.enabled", havingValue = "false", matchIfMissing = true)
-    public NamedParameterJdbcTemplate emptyNamedParameterJdbcTemplate(JdbcTemplate emptyJdbcTemplate) {
-        return new NamedParameterJdbcTemplate(emptyJdbcTemplate);
+    
+    private final AppConfig appConfig;
+    
+    @Autowired
+    public DatabaseConfig(AppConfig appConfig) {
+        this.appConfig = appConfig;
     }
     
     /**
-     * 空的 DataSource 实现
-     * 所有方法都返回空值或抛出异常
+     * 创建数据源
+     */
+    @Bean
+    public DataSource dataSource() {
+        if (!appConfig.isDataSourceEnabled()) {
+            log.warn("数据源未启用，返回空数据源");
+            return new EmptyDataSource();
+        }
+        
+        try {
+            Properties properties = appConfig.getConfigProperties();
+            
+            String driverClassName = properties.getProperty("spring.datasource.driver-class-name");
+            String url = properties.getProperty("spring.datasource.url");
+            String username = properties.getProperty("spring.datasource.username");
+            String password = properties.getProperty("spring.datasource.password");
+            
+            // 验证必要的配置参数
+            if (driverClassName == null || driverClassName.trim().isEmpty() ||
+                    url == null || url.trim().isEmpty() ||
+                    username == null || username.trim().isEmpty()) {
+                log.error("数据源配置不完整");
+                return new EmptyDataSource();
+            }
+            
+            // 创建数据源
+            DriverManagerDataSource dataSource = new DriverManagerDataSource();
+            dataSource.setDriverClassName(driverClassName.trim());
+            dataSource.setUrl(url.trim());
+            dataSource.setUsername(username.trim());
+            if (password != null) {
+                dataSource.setPassword(password.trim());
+            }
+            
+            log.info("数据源创建成功: url={}", url);
+            return dataSource;
+            
+        } catch (Exception e) {
+            log.error("创建数据源失败: {}", e.getMessage(), e);
+            return new EmptyDataSource();
+        }
+    }
+    
+    /**
+     * 创建 JdbcTemplate
+     */
+    @Bean
+    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
+        if (dataSource instanceof EmptyDataSource) {
+            log.warn("数据源未启用，返回空 JdbcTemplate");
+            return new EmptyJdbcTemplate();
+        }
+        return new JdbcTemplate(dataSource);
+    }
+    
+    /**
+     * 空数据源实现
      */
     private static class EmptyDataSource implements DataSource {
         @Override
-        public Connection getConnection() throws SQLException {
-            throw new SQLException("数据源未配置");
+        public java.sql.Connection getConnection() {
+            throw new UnsupportedOperationException("数据源未启用");
         }
-
+        
         @Override
-        public Connection getConnection(String username, String password) throws SQLException {
-            throw new SQLException("数据源未配置");
+        public java.sql.Connection getConnection(String username, String password) {
+            throw new UnsupportedOperationException("数据源未启用");
         }
-
+        
         @Override
-        public PrintWriter getLogWriter() throws SQLException {
-            return null;
+        public java.io.PrintWriter getLogWriter() {
+            throw new UnsupportedOperationException("数据源未启用");
         }
-
+        
         @Override
-        public void setLogWriter(PrintWriter out) throws SQLException {
+        public void setLogWriter(java.io.PrintWriter out) {
+            throw new UnsupportedOperationException("数据源未启用");
         }
-
+        
         @Override
-        public void setLoginTimeout(int seconds) throws SQLException {
+        public void setLoginTimeout(int seconds) {
+            throw new UnsupportedOperationException("数据源未启用");
         }
-
+        
         @Override
-        public int getLoginTimeout() throws SQLException {
-            return 0;
+        public int getLoginTimeout() {
+            throw new UnsupportedOperationException("数据源未启用");
         }
-
+        
         @Override
-        public Logger getParentLogger() throws SQLFeatureNotSupportedException {
-            return null;
+        public java.util.logging.Logger getParentLogger() {
+            throw new UnsupportedOperationException("数据源未启用");
         }
-
+        
         @Override
-        public <T> T unwrap(Class<T> iface) throws SQLException {
-            return null;
+        public <T> T unwrap(Class<T> iface) {
+            throw new UnsupportedOperationException("数据源未启用");
         }
-
+        
         @Override
-        public boolean isWrapperFor(Class<?> iface) throws SQLException {
+        public boolean isWrapperFor(Class<?> iface) {
             return false;
         }
     }
     
     /**
-     * 空的 JdbcTemplate 实现
-     * 所有方法都返回空值或空集合
+     * 空 JdbcTemplate 实现
      */
     private static class EmptyJdbcTemplate extends JdbcTemplate {
-        public EmptyJdbcTemplate(DataSource dataSource) {
-            super(dataSource);
-        }
-
         @Override
-        public <T> T query(String sql, ResultSetExtractor<T> rse) {
-            return null;
-        }
-
-        @Override
-        public <T> List<T> query(String sql, RowMapper<T> rowMapper) {
-            return Collections.emptyList();
-        }
-
-        @Override
-        public <T> T queryForObject(String sql, Class<T> requiredType) {
-            return null;
-        }
-
-        @Override
-        public <T> T queryForObject(String sql, Object[] args, Class<T> requiredType) {
-            return null;
-        }
-
-        @Override
-        public Map<String, Object> queryForMap(String sql) {
-            return Collections.emptyMap();
-        }
-
-        @Override
-        public List<Map<String, Object>> queryForList(String sql) {
-            return Collections.emptyList();
-        }
-
-        @Override
-        public int update(String sql) {
-            return 0;
-        }
-
-        @Override
-        public int[] batchUpdate(String... sql) {
-            return new int[0];
+        public <T> T execute(String sql, Object[] args, int[] argTypes, java.sql.PreparedStatementCallback<T> action) {
+            throw new UnsupportedOperationException("数据源未启用");
         }
     }
 }

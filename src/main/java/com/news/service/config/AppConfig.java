@@ -1,158 +1,147 @@
 package com.news.service.config;
 
-import com.zaxxer.hikari.HikariDataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
-import org.springframework.context.annotation.PropertySources;
-import org.springframework.core.env.Environment;
+import org.springframework.boot.context.event.ApplicationStartedEvent;
+import org.springframework.context.ApplicationListener;
+import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-import javax.sql.DataSource;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Properties;
 
 /**
- * 应用配置类
- * 支持外部配置文件和内部配置
+ * 应用程序配置类
  */
 @Slf4j
-@Configuration
-@PropertySources({
-    @PropertySource(value = "file:${app.config.file}", ignoreResourceNotFound = true),
-    @PropertySource(value = "classpath:application.properties")
-})
-public class AppConfig {
-
-    @Value("${spring.datasource.enabled:false}")
-    private boolean dataSourceEnabled;
-    
-    @Value("${spring.datasource.driver-class-name:}")
-    private String driverClassName;
-    
-    @Value("${spring.datasource.url:}")
-    private String url;
-    
-    @Value("${spring.datasource.username:}")
-    private String username;
-    
-    @Value("${spring.datasource.password:}")
-    private String password;
+@Component
+public class AppConfig implements ApplicationListener<ApplicationStartedEvent> {
     
     @Value("${app.config.file}")
     private String configFilePath;
     
-    private final Environment env;
-    private HikariDataSource dataSourceInstance;
+    private boolean dataSourceEnabled;
     
-    public AppConfig(Environment env) {
-        this.env = env;
-    }
-    
-    @PostConstruct
-    public void init() {
-        log.info("应用启动模式: {}", dataSourceEnabled ? "数据库模式" : "无数据库模式");
-        File configFile = new File(configFilePath);
-        if (configFile.exists()) {
-            log.info("外部配置文件已加载: {}", configFilePath);
-        } else {
-            log.warn("外部配置文件不存在: {}", configFilePath);
-        }
+    @Override
+    public void onApplicationEvent(ApplicationStartedEvent event) {
+        log.info("应用程序启动，开始加载配置");
+        loadConfig();
     }
     
     /**
-     * 有条件地创建数据源
+     * 加载配置
      */
-    @Bean
-    @ConditionalOnProperty(name = "spring.datasource.enabled", havingValue = "true")
-    public DataSource dataSource() {
+    private void loadConfig() {
+        log.info("开始加载配置文件: {}", configFilePath);
+        
         try {
-            log.info("尝试创建数据库连接...");
-            dataSourceInstance = new HikariDataSource();
-            dataSourceInstance.setDriverClassName(driverClassName);
-            dataSourceInstance.setJdbcUrl(url);
-            dataSourceInstance.setUsername(username);
-            dataSourceInstance.setPassword(password);
+            // 检查配置文件是否存在
+            File configFile = new File(configFilePath);
+            if (!configFile.exists()) {
+                // 如果配置文件不存在，创建目录和文件
+                File parentDir = configFile.getParentFile();
+                if (parentDir != null && !parentDir.exists()) {
+                    if (!parentDir.mkdirs()) {
+                        throw new IOException("创建配置文件目录失败");
+                    }
+                }
+                if (!configFile.createNewFile()) {
+                    throw new IOException("创建配置文件失败");
+                }
+                
+                // 创建默认配置
+                Properties defaultProperties = new Properties();
+                defaultProperties.setProperty("spring.datasource.enabled", "false");
+                defaultProperties.store(Files.newOutputStream(Paths.get(configFilePath)), "默认配置");
+                
+                log.info("创建默认配置文件");
+                dataSourceEnabled = false;
+                return;
+            }
             
-            // 连接池配置
-            dataSourceInstance.setConnectionTimeout(Long.parseLong(env.getProperty("spring.datasource.hikari.connection-timeout", "30000")));
-            dataSourceInstance.setMaximumPoolSize(Integer.parseInt(env.getProperty("spring.datasource.hikari.maximum-pool-size", "10")));
-            dataSourceInstance.setMinimumIdle(Integer.parseInt(env.getProperty("spring.datasource.hikari.minimum-idle", "5")));
-            dataSourceInstance.setIdleTimeout(Long.parseLong(env.getProperty("spring.datasource.hikari.idle-timeout", "600000")));
-            dataSourceInstance.setMaxLifetime(Long.parseLong(env.getProperty("spring.datasource.hikari.max-lifetime", "1800000")));
+            // 读取配置文件
+            Properties properties = new Properties();
+            try (FileInputStream in = new FileInputStream(configFile)) {
+                properties.load(in);
+            }
             
-            // 验证连接是否有效
-            dataSourceInstance.setConnectionTestQuery("SELECT 1");
+            // 解析配置
+            String enabled = properties.getProperty("spring.datasource.enabled", "false");
+            dataSourceEnabled = Boolean.parseBoolean(enabled);
             
-            log.info("数据库连接创建成功: {}", url);
-            return dataSourceInstance;
+            log.info("加载配置成功: dataSourceEnabled={}", dataSourceEnabled);
+            
         } catch (Exception e) {
-            log.error("创建数据库连接失败: {}", e.getMessage(), e);
-            return null;
+            log.error("加载配置文件失败: {}", e.getMessage(), e);
+            dataSourceEnabled = false;
         }
     }
     
     /**
-     * 检查数据源是否已启用
+     * 重新加载配置
+     */
+    public void reloadConfig() {
+        log.info("开始重新加载配置");
+        loadConfig();
+    }
+    
+    /**
+     * 检查数据源是否启用
      */
     public boolean isDataSourceEnabled() {
         return dataSourceEnabled;
     }
     
     /**
-     * 重新加载配置的方法，允许配置在不重启应用的情况下生效
-     * 注意：这个方法应该在配置更新后调用
+     * 获取配置文件路径
      */
-    public void reloadConfig() {
+    public String getConfigFilePath() {
+        return configFilePath;
+    }
+    
+    /**
+     * 获取配置文件内容
+     */
+    public Properties getConfigProperties() {
+        Properties properties = new Properties();
         try {
-            log.info("尝试重新加载配置...");
             File configFile = new File(configFilePath);
-            
+            if (configFile.exists() && configFile.length() > 0) {
+                try (FileInputStream in = new FileInputStream(configFile)) {
+                    properties.load(in);
+                }
+            }
+        } catch (Exception e) {
+            log.error("读取配置文件失败: {}", e.getMessage(), e);
+        }
+        return properties;
+    }
+    
+    /**
+     * 保存配置文件
+     */
+    public void saveConfigProperties(Properties properties) {
+        try {
+            File configFile = new File(configFilePath);
             if (!configFile.exists()) {
-                log.warn("外部配置文件不存在，无法重新加载: {}", configFilePath);
-                return;
+                File parentDir = configFile.getParentFile();
+                if (parentDir != null && !parentDir.exists()) {
+                    if (!parentDir.mkdirs()) {
+                        throw new IOException("创建配置文件目录失败");
+                    }
+                }
+                if (!configFile.createNewFile()) {
+                    throw new IOException("创建配置文件失败");
+                }
             }
-            
-            // 读取最新的配置
-            Properties properties = new Properties();
-            properties.load(Files.newInputStream(Paths.get(configFilePath)));
-            
-            boolean newDataSourceEnabled = Boolean.parseBoolean(properties.getProperty("spring.datasource.enabled", "false"));
-            String newDriverClassName = properties.getProperty("spring.datasource.driver-class-name", "");
-            String newUrl = properties.getProperty("spring.datasource.url", "");
-            String newUsername = properties.getProperty("spring.datasource.username", "");
-            String newPassword = properties.getProperty("spring.datasource.password", "");
-            
-            // 更新实例变量
-            this.dataSourceEnabled = newDataSourceEnabled;
-            this.driverClassName = newDriverClassName;
-            this.url = newUrl;
-            this.username = newUsername;
-            this.password = newPassword;
-            
-            // 如果数据源已存在，关闭它
-            if (dataSourceInstance != null) {
-                log.info("关闭现有数据库连接...");
-                dataSourceInstance.close();
-                dataSourceInstance = null;
-            }
-            
-            // 如果启用了新的数据源，创建它
-            if (newDataSourceEnabled) {
-                log.info("根据新配置创建数据库连接...");
-                dataSource();
-            }
-            
-            log.info("配置重新加载完成");
-        } catch (IOException e) {
-            log.error("重新加载配置失败: {}", e.getMessage(), e);
-            throw new RuntimeException("重新加载配置失败", e);
+            properties.store(Files.newOutputStream(Paths.get(configFilePath)), "应用程序配置");
+            log.info("保存配置文件成功");
+        } catch (Exception e) {
+            log.error("保存配置文件失败: {}", e.getMessage(), e);
+            throw new RuntimeException("保存配置文件失败: " + e.getMessage(), e);
         }
     }
 }

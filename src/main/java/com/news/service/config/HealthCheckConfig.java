@@ -1,18 +1,19 @@
 package com.news.service.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Component;
 
 /**
- * 自定义健康检查配置
+ * 健康检查配置
  */
-@Component
+@Configuration
 public class HealthCheckConfig implements HealthIndicator {
     
     private final AppConfig appConfig;
     
+    @Autowired
     public HealthCheckConfig(AppConfig appConfig) {
         this.appConfig = appConfig;
     }
@@ -20,15 +21,13 @@ public class HealthCheckConfig implements HealthIndicator {
     @Override
     public Health health() {
         if (!appConfig.isDataSourceEnabled()) {
-            return Health.up()
-                    .withDetail("database", "Database is not configured")
-                    .withDetail("message", "Application is running in no-database mode")
+            return Health.down()
+                    .withDetail("message", "数据源未配置")
                     .build();
         }
         
         return Health.up()
-                .withDetail("database", "Database is configured")
-                .withDetail("message", "Application is running in database mode")
+                .withDetail("message", "服务运行正常")
                 .build();
     }
 }
