@@ -1,322 +1,147 @@
 package com.news.service.service;
 
 import com.news.service.config.AppConfig;
-import com.news.service.model.SearchRequest;
-import com.news.service.model.SearchResult;
 import com.news.service.model.PageResult;
-import com.news.service.util.XmlContentExtractor;
-import lombok.extern.slf4j.Slf4j;
+import com.news.service.model.SearchResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.regex.Pattern;
 
-/**
- * 搜索服务实现类
- */
-@Slf4j
 @Service
 public class SearchServiceImpl implements SearchService {
-    
-    private final AppConfig appConfig;
-    private final JdbcTemplate jdbcTemplate;
-    private final XmlContentExtractor xmlContentExtractor;
-    
+
+    private static final Logger logger = LoggerFactory.getLogger(SearchServiceImpl.class);
+
     @Autowired
-    public SearchServiceImpl(AppConfig appConfig, JdbcTemplate jdbcTemplate, XmlContentExtractor xmlContentExtractor) {
-        this.appConfig = appConfig;
-        this.jdbcTemplate = jdbcTemplate;
-        this.xmlContentExtractor = xmlContentExtractor;
-    }
-    
+    private AppConfig appConfig;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @Override
-    public boolean isAvailable() {
-        return appConfig.isDataSourceEnabled();
-    }
-    
-    @Override
-    public PageResult<SearchResult> search(SearchRequest request) {
-        log.info("开始搜索: keywords={}, page={}, pageSize={}", 
-                request.getKeywords(), request.getPage(), request.getPageSize());
-        
-        // 检查服务是否可用
-        if (!isAvailable()) {
-            throw new IllegalStateException("搜索服务不可用");
+    public PageResult<SearchResult> search(String keywords, int page, int size) {
+        logger.info("开始搜索，关键词：{}，页码：{}，每页大小：{}", keywords, page, size);
+
+        if (!appConfig.isDataSourceEnabled()) {
+            logger.warn("数据源未启用，无法执行搜索");
+            return null;
         }
-        
-        // 解析关键词
-        String keywords = request.getKeywords().trim();
-        if (keywords.isEmpty()) {
-            throw new IllegalArgumentException("请输入搜索关键词");
+
+        List<String> keywordList = parseKeywords(keywords);
+        if (keywordList.isEmpty()) {
+            logger.warn("关键词为空，返回空结果");
+            return new PageResult<>(new ArrayList<>(), 0, page, size);
         }
-        
-        // 构建搜索条件
-        List<String> conditions = new ArrayList<>();
+
         List<Object> params = new ArrayList<>();
-        
-        // 处理关键词
-        if (keywords.contains("OR")) {
-            // OR查询
-            String[] terms = keywords.split("\\s*OR\\s*");
-            List<String> termConditions = new ArrayList<>();
-            for (String term : terms) {
-                processKeywordTerm(term.trim(), termConditions, params);
-            }
-            if (!termConditions.isEmpty()) {
-                conditions.add("(" + String.join(" OR ", termConditions) + ")");
-            }
-        } else {
-            // AND查询
-            String[] terms = keywords.split("\\s+");
-            for (String term : terms) {
-                processKeywordTerm(term.trim(), conditions, params);
-            }
+        String conditions = buildSearchConditions(keywordList, params);
+
+        String countSql = "SELECT COUNT(*) FROM cob_program p JOIN com_basicinfo b ON p.objectid = b.id WHERE " + conditions;
+        int total = jdbcTemplate.queryForObject(countSql, params.toArray(), Integer.class);
+
+        if (total == 0) {
+            logger.info("未找到匹配的结果");
+            return new PageResult<>(new ArrayList<>(), 0, page, size);
         }
-        
-        // 构建 WHERE 子句
-        String whereClause = conditions.isEmpty() ? "" : "WHERE " + String.join(" AND ", conditions);
-        
-        // 构建分页参数
-        int offset = (request.getPage() - 1) * request.getPageSize();
-        int limit = request.getPageSize();
-        
-        // 构建查询SQL
-        String countSql = String.format(
-                "SELECT COUNT(*) FROM cob_program p JOIN com_basicinfo b ON p.objectid = b.id %s",
-                whereClause
-        );
-        
-        String searchSql = String.format(
-                "SELECT b.ID, b.NAME, p.FIELD1079 as xml_content, b.CREATED " +
-                "FROM cob_program p JOIN com_basicinfo b ON p.objectid = b.id %s " +
-                "ORDER BY b.CREATED DESC LIMIT ? OFFSET ?",
-                whereClause
-        );
-        
-        // 添加分页参数
-        params.add(limit);
-        params.add(offset);
-        
-        try {
-            // 查询总数
-            long total = jdbcTemplate.queryForObject(countSql, params.toArray(), Long.class);
-            log.info("查询到总数: {}", total);
-            
-            if (total == 0) {
-                return PageResult.<SearchResult>builder()
-                        .page(request.getPage())
-                        .pageSize(request.getPageSize())
-                        .total(0)
-                        .items(new ArrayList<>())
-                        .build();
-            }
-            
-            // 查询数据
-            List<SearchResult> results = jdbcTemplate.query(
-                    searchSql,
-                    params.toArray(),
-                    (rs, rowNum) -> mapRowToSearchResult(rs, keywords)
-            );
-            
-            // 构建分页结果
-            return PageResult.<SearchResult>builder()
-                    .page(request.getPage())
-                    .pageSize(request.getPageSize())
-                    .total(total)
-                    .items(results)
-                    .build();
-            
-        } catch (Exception e) {
-            log.error("执行搜索查询失败: {}", e.getMessage(), e);
-            throw new RuntimeException("执行搜索查询失败: " + e.getMessage(), e);
-        }
+
+        int offset = (page - 1) * size;
+        String sql = "SELECT b.ID, b.NAME, p.FIELD1079 as xml_content, b.CREATED FROM cob_program p JOIN com_basicinfo b ON p.objectid = b.id WHERE " +
+                conditions + " ORDER BY b.CREATED DESC LIMIT " + size + " OFFSET " + offset;
+
+        List<SearchResult> results = jdbcTemplate.query(sql, params.toArray(), new SearchResultRowMapper());
+        logger.info("搜索完成，共找到 {} 条结果", total);
+
+        return new PageResult<>(results, total, page, size);
     }
-    
-    @Override
-    public long count(String keywords) {
-        log.info("开始计数: keywords={}", keywords);
-        
-        // 检查服务是否可用
-        if (!isAvailable()) {
-            throw new IllegalStateException("搜索服务不可用");
+
+    private List<String> parseKeywords(String keywords) {
+        List<String> keywordList = new ArrayList<>();
+        if (keywords == null || keywords.trim().isEmpty()) {
+            return keywordList;
         }
-        
-        // 解析关键词
-        keywords = keywords.trim();
-        if (keywords.isEmpty()) {
-            throw new IllegalArgumentException("请输入搜索关键词");
-        }
-        
-        // 构建搜索条件
-        List<String> conditions = new ArrayList<>();
-        List<Object> params = new ArrayList<>();
-        
-        // 处理关键词
-        if (keywords.contains("OR")) {
-            // OR查询
-            String[] terms = keywords.split("\\s*OR\\s*");
-            List<String> termConditions = new ArrayList<>();
-            for (String term : terms) {
-                processKeywordTerm(term.trim(), termConditions, params);
-            }
-            if (!termConditions.isEmpty()) {
-                conditions.add("(" + String.join(" OR ", termConditions) + ")");
-            }
-        } else {
-            // AND查询
-            String[] terms = keywords.split("\\s+");
-            for (String term : terms) {
-                processKeywordTerm(term.trim(), conditions, params);
-            }
-        }
-        
-        // 构建 WHERE 子句
-        String whereClause = conditions.isEmpty() ? "" : "WHERE " + String.join(" AND ", conditions);
-        
-        // 构建查询SQL
-        String countSql = String.format(
-                "SELECT COUNT(*) FROM cob_program p JOIN com_basicinfo b ON p.objectid = b.id %s",
-                whereClause
-        );
-        
-        try {
-            long count = jdbcTemplate.queryForObject(countSql, params.toArray(), Long.class);
-            log.info("计数完成: {}", count);
-            return count;
-            
-        } catch (Exception e) {
-            log.error("执行计数查询失败: {}", e.getMessage(), e);
-            throw new RuntimeException("执行计数查询失败: " + e.getMessage(), e);
-        }
-    }
-    
-    /**
-     * 处理关键词条件
-     */
-    private void processKeywordTerm(String term, List<String> conditions, List<Object> params) {
-        if (!term.isEmpty()) {
-            conditions.add("(UPPER(b.NAME) LIKE UPPER(?) OR UPPER(p.FIELD1079) LIKE UPPER(?))");
-            String pattern = "%" + term + "%";
-            params.add(pattern);
-            params.add(pattern);
-        }
-    }
-    
-    /**
-     * 将数据库行映射为搜索结果对象
-     */
-    private SearchResult mapRowToSearchResult(ResultSet rs, String keywords) throws SQLException {
-        // 提取数据
-        String id = rs.getString("ID");
-        String xmlContent = rs.getString("xml_content");
-        String title = rs.getString("NAME");
-        java.sql.Timestamp created = rs.getTimestamp("CREATED");
-        
-        log.debug("处理搜索结果行: id={}, title={}, xmlLength={}",
-                id, title, xmlContent != null ? xmlContent.length() : 0);
-        
-        // 提取XML内容
-        String content = xmlContentExtractor.extract(xmlContent);
-        if (content == null || content.isEmpty()) {
-            content = "没有提取到内容";
-        }
-        
-        // 计算匹配分数
-        double score = calculateScore(title, content, keywords);
-        
-        // 高亮关键词
-        String highlightedTitle = highlightKeywords(title, keywords);
-        String highlightedContent = highlightKeywords(content, keywords);
-        
-        // 构建搜索结果
-        return SearchResult.builder()
-                .id(id)
-                .title(highlightedTitle)
-                .content(highlightedContent)
-                .created(created)
-                .score(score)
-                .build();
-    }
-    
-    /**
-     * 计算搜索结果匹配分数
-     */
-    private double calculateScore(String title, String content, String keywords) {
-        double score = 0.0;
-        
-        // 分解关键词
-        List<String> terms;
-        if (keywords.contains("OR")) {
-            terms = Arrays.asList(keywords.split("\\s*OR\\s*"));
-        } else {
-            terms = Arrays.asList(keywords.split("\\s+"));
-        }
-        
-        // 计算每个关键词的匹配分数
+
+        String[] terms = keywords.split(",");
         for (String term : terms) {
-            term = term.trim().toLowerCase();
-            if (!term.isEmpty()) {
-                // 标题匹配分数（权重更高）
-                int titleMatches = countMatches(title.toLowerCase(), term);
-                score += titleMatches * 2.0;
-                
-                // 内容匹配分数
-                int contentMatches = countMatches(content.toLowerCase(), term);
-                score += contentMatches * 1.0;
+            if (!term.trim().isEmpty()) {
+                keywordList.add(term.trim());
             }
         }
-        
-        return score;
+        return keywordList;
     }
-    
-    /**
-     * 计算字符串中关键词的出现次数
-     */
-    private int countMatches(String text, String term) {
-        int count = 0;
-        int index = 0;
-        while ((index = text.indexOf(term, index)) != -1) {
-            count++;
-            index += term.length();
+
+    private String buildSearchConditions(List<String> keywords, List<Object> params) {
+        List<String> conditions = new ArrayList<>();
+
+        for (String keyword : keywords) {
+            if (keyword.contains("OR")) {
+                String[] orTerms = keyword.split("OR");
+                List<String> orConditions = new ArrayList<>();
+                for (String term : orTerms) {
+                    if (!term.trim().isEmpty()) {
+                        orConditions.add(processKeywordTerm(term.trim(), params));
+                    }
+                }
+                if (!orConditions.isEmpty()) {
+                    conditions.add("(" + String.join(" OR ", orConditions) + ")");
+                }
+            } else {
+                conditions.add(processKeywordTerm(keyword, params));
+            }
         }
+
+        return String.join(" AND ", conditions);
+    }
+
+    private String processKeywordTerm(String term, List<Object> params) {
+        String likePattern = "%" + term + "%";
+        params.add(likePattern);
+        params.add(likePattern);
+        return "(UPPER(b.NAME) LIKE UPPER(?) OR UPPER(p.FIELD1079) LIKE UPPER(?))"; 
+    }
+
+    private static class SearchResultRowMapper implements RowMapper<SearchResult> {
+        @Override
+        public SearchResult mapRow(ResultSet rs, int rowNum) throws SQLException {
+            SearchResult result = new SearchResult();
+            result.setId(rs.getString("ID"));
+            String xmlContent = rs.getString("xml_content");
+            result.setContent(xmlContent != null ? xmlContent : "");
+            result.setTitle(rs.getString("NAME"));
+            result.setCreateTime(rs.getTimestamp("CREATED"));
+            return result;
+        }
+    }
+
+    @Override
+    public int count(String keywords) {
+        logger.info("开始统计搜索结果数量，关键词：{}", keywords);
+
+        if (!appConfig.isDataSourceEnabled()) {
+            logger.warn("数据源未启用，无法执行统计");
+            return 0;
+        }
+
+        List<String> keywordList = parseKeywords(keywords);
+        if (keywordList.isEmpty()) {
+            logger.warn("关键词为空，返回0");
+            return 0;
+        }
+
+        List<Object> params = new ArrayList<>();
+        String conditions = buildSearchConditions(keywordList, params);
+
+        String sql = "SELECT COUNT(*) FROM cob_program p JOIN com_basicinfo b ON p.objectid = b.id WHERE " + conditions;
+        int count = jdbcTemplate.queryForObject(sql, params.toArray(), Integer.class);
+
+        logger.info("统计完成，共找到 {} 条结果", count);
         return count;
-    }
-    
-    /**
-     * 高亮显示关键词
-     */
-    private String highlightKeywords(String text, String keywords) {
-        if (text == null || text.isEmpty() || keywords == null || keywords.isEmpty()) {
-            return text;
-        }
-        
-        // 分解关键词
-        List<String> terms;
-        if (keywords.contains("OR")) {
-            terms = Arrays.asList(keywords.split("\\s*OR\\s*"));
-        } else {
-            terms = Arrays.asList(keywords.split("\\s+"));
-        }
-        
-        // 高亮每个关键词
-        String result = text;
-        for (String term : terms) {
-            term = term.trim();
-            if (!term.isEmpty()) {
-                // 使用正则表达式进行大小写不敏感的替换
-                Pattern pattern = Pattern.compile(Pattern.quote(term), Pattern.CASE_INSENSITIVE);
-                result = pattern.matcher(result).replaceAll(match -> 
-                        "<span class=\"highlight\">" + match.group() + "</span>"
-                );
-            }
-        }
-        
-        return result;
     }
 }
