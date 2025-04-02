@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新闻检索服务</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="container">
+            <a class="navbar-brand" href="/">新闻检索服务</a>
+            <div>
+                <a class="nav-link" href="/search">搜索</a>
+                <a class="nav-link" href="/config">配置</a>
+                <a class="nav-link" href="/status">状态</a>
+                <a class="nav-link" href="/help">帮助</a>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- 主要内容 -->
+    <div class="container">
+        <!-- 状态提示 -->
+        <div th:if="${!serviceAvailable}" class="error-message">
+            <p th:text="${message}">服务不可用</p>
+            <div th:if="${setupRequired}">
+                <p>请先进行数据库配置：</p>
+                <a href="/config" class="search-button">前往配置</a>
+            </div>
+        </div>
+        
+        <!-- 搜索表单 -->
+        <div class="search-form">
+            <h1>欢迎使用新闻检索服务</h1>
+            <p>输入关键词开始搜索新闻内容。</p>
+            <form action="/search" method="post">
+                <input type="text" name="keywords" class="search-input" placeholder="输入关键词..." required>
+                <button type="submit" class="search-button">搜索</button>
+            </form>
+        </div>
+        
+        <!-- 功能特点 -->
+        <div class="search-results">
+            <div class="result-item">
+                <h2>功能特点</h2>
+                <ul>
+                    <li>全文搜索：支持在新闻标题和内容中搜索关键词</li>
+                    <li>关键词高亮：自动高亮显示搜索结果中的关键词</li>
+                    <li>智能排序：根据相关度对搜索结果进行排序</li>
+                    <li>JSON输出：支持JSON格式的API输出</li>
+                </ul>
+            </div>
+            
+            <div class="result-item">
+                <h2>使用说明</h2>
+                <ul>
+                    <li>单个关键词搜索：直接输入关键词</li>
+                    <li>多关键词 AND 搜索：用空格分隔关键词</li>
+                    <li>多关键词 OR 搜索：用 OR 分隔关键词</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
