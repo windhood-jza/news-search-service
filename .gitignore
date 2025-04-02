@@ -32,10 +32,11 @@ build/
 ### VS Code ###
 .vscode/
 
-### Logs ###
-*.log
+### 应用配置文件 ###
+config/
 logs/
+*.log
 
-### Local Configuration ###
-application-local.properties
-application-local.yml
+### 系统文件 ###
+.DS_Store
+Thumbs.db
