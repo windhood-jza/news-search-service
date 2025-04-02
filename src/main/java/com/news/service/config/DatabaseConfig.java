@@ -1,142 +1,108 @@
 package com.news.service.config;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import javax.sql.DataSource;
-import java.util.Properties;
+import java.sql.Connection;
+import java.sql.SQLException;
 
-/**
- * 数据库配置类
- */
-@Slf4j
 @Configuration
 public class DatabaseConfig {
-    
-    private final AppConfig appConfig;
-    
-    @Autowired
-    public DatabaseConfig(AppConfig appConfig) {
-        this.appConfig = appConfig;
-    }
-    
-    /**
-     * 创建数据源
-     */
+
     @Bean
+    @ConditionalOnProperty(name = "spring.datasource.enabled", havingValue = "true")
     public DataSource dataSource() {
-        if (!appConfig.isDataSourceEnabled()) {
-            log.warn("数据源未启用，返回空数据源");
-            return new EmptyDataSource();
-        }
-        
-        try {
-            Properties properties = appConfig.getConfigProperties();
-            
-            String driverClassName = properties.getProperty("spring.datasource.driver-class-name");
-            String url = properties.getProperty("spring.datasource.url");
-            String username = properties.getProperty("spring.datasource.username");
-            String password = properties.getProperty("spring.datasource.password");
-            
-            // 验证必要的配置参数
-            if (driverClassName == null || driverClassName.trim().isEmpty() ||
-                    url == null || url.trim().isEmpty() ||
-                    username == null || username.trim().isEmpty()) {
-                log.error("数据源配置不完整");
-                return new EmptyDataSource();
-            }
-            
-            // 创建数据源
-            DriverManagerDataSource dataSource = new DriverManagerDataSource();
-            dataSource.setDriverClassName(driverClassName.trim());
-            dataSource.setUrl(url.trim());
-            dataSource.setUsername(username.trim());
-            if (password != null) {
-                dataSource.setPassword(password.trim());
-            }
-            
-            log.info("数据源创建成功: url={}", url);
-            return dataSource;
-            
-        } catch (Exception e) {
-            log.error("创建数据源失败: {}", e.getMessage(), e);
-            return new EmptyDataSource();
-        }
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("oracle.jdbc.OracleDriver");
+        dataSource.setUrl("jdbc:oracle:thin:@localhost:1521:XE");
+        dataSource.setUsername("system");
+        dataSource.setPassword("password");
+        return dataSource;
     }
-    
-    /**
-     * 创建 JdbcTemplate
-     */
+
     @Bean
+    @ConditionalOnProperty(name = "spring.datasource.enabled", havingValue = "true")
     public JdbcTemplate jdbcTemplate(DataSource dataSource) {
-        if (dataSource instanceof EmptyDataSource) {
-            log.warn("数据源未启用，返回空 JdbcTemplate");
-            return new EmptyJdbcTemplate();
-        }
         return new JdbcTemplate(dataSource);
     }
-    
-    /**
-     * 空数据源实现
-     */
+
+    @Bean
+    @ConditionalOnProperty(name = "spring.datasource.enabled", havingValue = "false")
+    public DataSource emptyDataSource() {
+        return new EmptyDataSource();
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "spring.datasource.enabled", havingValue = "false")
+    public JdbcTemplate emptyJdbcTemplate() {
+        return new EmptyJdbcTemplate();
+    }
+
     private static class EmptyDataSource implements DataSource {
         @Override
-        public java.sql.Connection getConnection() {
-            throw new UnsupportedOperationException("数据源未启用");
+        public Connection getConnection() throws SQLException {
+            throw new UnsupportedOperationException();
         }
-        
+
         @Override
-        public java.sql.Connection getConnection(String username, String password) {
-            throw new UnsupportedOperationException("数据源未启用");
+        public Connection getConnection(String username, String password) throws SQLException {
+            throw new UnsupportedOperationException();
         }
-        
+
         @Override
-        public java.io.PrintWriter getLogWriter() {
-            throw new UnsupportedOperationException("数据源未启用");
+        public java.io.PrintWriter getLogWriter() throws SQLException {
+            throw new UnsupportedOperationException();
         }
-        
+
         @Override
-        public void setLogWriter(java.io.PrintWriter out) {
-            throw new UnsupportedOperationException("数据源未启用");
+        public void setLogWriter(java.io.PrintWriter out) throws SQLException {
+            throw new UnsupportedOperationException();
         }
-        
+
         @Override
-        public void setLoginTimeout(int seconds) {
-            throw new UnsupportedOperationException("数据源未启用");
+        public void setLoginTimeout(int seconds) throws SQLException {
+            throw new UnsupportedOperationException();
         }
-        
+
         @Override
-        public int getLoginTimeout() {
-            throw new UnsupportedOperationException("数据源未启用");
+        public int getLoginTimeout() throws SQLException {
+            throw new UnsupportedOperationException();
         }
-        
+
         @Override
-        public java.util.logging.Logger getParentLogger() {
-            throw new UnsupportedOperationException("数据源未启用");
+        public java.util.logging.Logger getParentLogger() throws java.sql.SQLFeatureNotSupportedException {
+            throw new UnsupportedOperationException();
         }
-        
+
         @Override
-        public <T> T unwrap(Class<T> iface) {
-            throw new UnsupportedOperationException("数据源未启用");
+        public <T> T unwrap(Class<T> iface) throws SQLException {
+            throw new UnsupportedOperationException();
         }
-        
+
         @Override
-        public boolean isWrapperFor(Class<?> iface) {
-            return false;
+        public boolean isWrapperFor(Class<?> iface) throws SQLException {
+            throw new UnsupportedOperationException();
         }
     }
-    
-    /**
-     * 空 JdbcTemplate 实现
-     */
+
     private static class EmptyJdbcTemplate extends JdbcTemplate {
         @Override
-        public <T> T execute(String sql, Object[] args, int[] argTypes, java.sql.PreparedStatementCallback<T> action) {
-            throw new UnsupportedOperationException("数据源未启用");
+        public <T> T queryForObject(String sql, Object[] args, Class<T> requiredType) {
+            return null;
+        }
+
+        @Override
+        public <T> T queryForObject(String sql, Class<T> requiredType) {
+            return null;
+        }
+
+        @Override
+        public <T> java.util.List<T> query(String sql, Object[] args, org.springframework.jdbc.core.RowMapper<T> rowMapper) {
+            return new java.util.ArrayList<>();
         }
     }
 }
