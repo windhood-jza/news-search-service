@@ -14,7 +14,7 @@
     <artifactId>news-service</artifactId>
     <version>1.0.0</version>
     <packaging>war</packaging>
-    <name>新闻检索服务</name>
+    <n>新闻检索服务</n>
     <description>新闻内容检索服务系统</description>
     
     <properties>
@@ -103,4 +103,5 @@
             </plugin>
         </plugins>
     </build>
+
 </project>
