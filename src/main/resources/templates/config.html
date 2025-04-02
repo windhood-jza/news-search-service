@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>配置 - 新闻检索服务</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/news/css/main.css">
+    <style>
+        .loading {
+            position: relative;
+        }
+        
+        .loading:after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .loading:before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            z-index: 1;
+            width: 30px;
+            height: 30px;
+            margin-top: -15px;
+            margin-left: -15px;
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-top-color: #007bff;
+            border-radius: 50%;
+            animation: spinner 0.6s linear infinite;
+        }
+        
+        @keyframes spinner {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="d-flex flex-wrap justify-content-center py-3 mb-4 border-bottom">
+            <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-dark text-decoration-none">
+                <span class="fs-4">新闻检索服务</span>
+            </a>
+            
+            <!-- 数据库状态指示器 -->
+            <div class="db-status-indicator me-3">
+                <span th:if="${isDatabaseEnabled}" class="badge bg-success">数据库已连接</span>
+                <span th:unless="${isDatabaseEnabled}" class="badge bg-danger">数据库未连接</span>
+            </div>
+            
+            <nav>
+                <ul class="nav nav-pills">
+                    <li class="nav-item"><a href="/news/" class="nav-link">首页</a></li>
+                    <li class="nav-item"><a href="/news/search-page" class="nav-link">搜索</a></li>
+                    <li class="nav-item"><a href="/news/config-page" class="nav-link active" aria-current="page">配置</a></li>
+                </ul>
+            </nav>
+        </header>
+        
+        <main>
+            <h1 class="mb-4">系统配置</h1>
+            
+            <div id="alertContainer"></div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="card-title h5 mb-0">数据库配置</h2>
+                </div>
+                <div class="card-body" id="dbConfigContainer">
+                    <form id="dbConfigForm">
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="dataSourceEnabled" name="dataSourceEnabled">
+                            <label class="form-check-label" for="dataSourceEnabled">启用数据库</label>
+                        </div>
+                        
+                        <div id="dbDetailsSection">
+                            <div class="mb-3">
+                                <label for="driverClassName" class="form-label">数据库类型</label>
+                                <select class="form-select" id="driverClassName" name="driverClassName" required>
+                                    <option value="">请选择数据库类型</option>
+                                    <option value="com.mysql.cj.jdbc.Driver">MySQL</option>
+                                    <option value="org.postgresql.Driver">PostgreSQL</option>
+                                    <option value="oracle.jdbc.OracleDriver">Oracle</option>
+                                    <option value="com.microsoft.sqlserver.jdbc.SQLServerDriver">SQL Server</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="host" class="form-label">主机地址</label>
+                                <input type="text" class="form-control" id="host" name="host" placeholder="localhost" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="port" class="form-label">端口</label>
+                                <input type="text" class="form-control" id="port" name="port" placeholder="3306" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="dbName" class="form-label">数据库名</label>
+                                <input type="text" class="form-control" id="dbName" name="dbName" placeholder="news" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="username" class="form-label">用户名</label>
+                                <input type="text" class="form-control" id="username" name="username" placeholder="" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="password" class="form-label">密码</label>
+                                <input type="password" class="form-control" id="password" name="password" required>
+                            </div>
+                            
+                            <input type="hidden" id="url" name="url">
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-info" id="testConnectionBtn">测试连接</button>
+                            <button type="submit" class="btn btn-primary" id="saveConfigBtn">保存配置</button>
+                            <button type="button" class="btn btn-secondary" id="reloadBtn">重新加载配置</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mb-4" th:if="${isDatabaseEnabled}">
+                <div class="card-header">
+                    <h2 class="card-title h5 mb-0">当前数据库连接信息</h2>
+                </div>
+                <div class="card-body">
+                    <table class="table">
+                        <tr>
+                            <th>数据库状态</th>
+                            <td>
+                                <span th:if="${isDatabaseEnabled}" class="badge bg-success">已连接</span>
+                                <span th:unless="${isDatabaseEnabled}" class="badge bg-danger">未连接</span>
+                            </td>
+                        </tr>
+                        <tr th:if="${isDatabaseEnabled}">
+                            <th>数据库类型</th>
+                            <td th:text="${databaseInfo.databaseType ?: '未知'}">MySQL</td>
+                        </tr>
+                        <tr th:if="${isDatabaseEnabled}">
+                            <th>数据库版本</th>
+                            <td th:text="${databaseInfo.databaseVersion ?: '未知'}">5.7.36</td>
+                        </tr>
+                        <tr th:if="${isDatabaseEnabled}">
+                            <th>服务器地址</th>
+                            <td th:text="${databaseInfo.serverHost ?: '未知'}">localhost</td>
+                        </tr>
+                        <tr th:if="${isDatabaseEnabled}">
+                            <th>数据库名称</th>
+                            <td th:text="${databaseInfo.databaseName ?: '未知'}">news</td>
+                        </tr>
+                        <tr th:if="${isDatabaseEnabled}">
+                            <th>连接用户</th>
+                            <td th:text="${databaseInfo.username ?: '未知'}">root</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </main>
+        
+        <footer class="pt-4 my-md-5 pt-md-5 border-top">
+            <div class="row">
+                <div class="col-12 col-md text-center">
+                    <small class="d-block mb-3 text-muted">&copy; 2023 新闻检索服务</small>
+                </div>
+            </div>
+        </footer>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // 根据是否启用数据库显示/隐藏详细配置项
+            function toggleDbDetailsSection() {
+                if ($('#dataSourceEnabled').is(':checked')) {
+                    $('#dbDetailsSection').show();
+                } else {
+                    $('#dbDetailsSection').hide();
+                }
+            }
+            
+            // 构建完整的数据库URL
+            function buildDbUrl() {
+                const dbType = $('#driverClassName').val();
+                const host = $('#host').val();
+                const port = $('#port').val();
+                const dbName = $('#dbName').val();
+                
+                let url = '';
+                
+                if (dbType === 'com.mysql.cj.jdbc.Driver') {
+                    url = `jdbc:mysql://${host}:${port}/${dbName}`;
+                } else if (dbType === 'org.postgresql.Driver') {
+                    url = `jdbc:postgresql://${host}:${port}/${dbName}`;
+                } else if (dbType === 'oracle.jdbc.OracleDriver') {
+                    url = `jdbc:oracle:thin:@${host}:${port}:${dbName}`;
+                } else if (dbType === 'com.microsoft.sqlserver.jdbc.SQLServerDriver') {
+                    url = `jdbc:sqlserver://${host}:${port};databaseName=${dbName}`;
+                }
+                
+                $('#url').val(url);
+                return url;
+            }
+
+            // 根据数据库类型设置默认端口
+            $('#driverClassName').on('change', function() {
+                const dbType = $(this).val();
+                let defaultPort = '3306';
+                
+                if (dbType === 'org.postgresql.Driver') {
+                    defaultPort = '5432';
+                } else if (dbType === 'oracle.jdbc.OracleDriver') {
+                    defaultPort = '1521';
+                } else if (dbType === 'com.microsoft.sqlserver.jdbc.SQLServerDriver') {
+                    defaultPort = '1433';
+                }
+                
+                if (!$('#port').val()) {
+                    $('#port').val(defaultPort);
+                }
+            });
+            
+            // 解析数据库URL到各个字段
+            function parseDbUrl(url) {
+                if (!url) return;
+                
+                let host = '', port = '', dbName = '';
+                const dbType = $('#driverClassName').val();
+                
+                if (dbType === 'com.mysql.cj.jdbc.Driver' && url.startsWith('jdbc:mysql://')) {
+                    // 解析 jdbc:mysql://localhost:3306/dbname
+                    const urlParts = url.replace('jdbc:mysql://', '').split('/');
+                    if (urlParts.length >= 2) {
+                        const hostPort = urlParts[0].split(':');
+                        host = hostPort[0];
+                        port = hostPort.length > 1 ? hostPort[1] : '3306';
+                        dbName = urlParts[1].split('?')[0];
+                    }
+                } else if (dbType === 'org.postgresql.Driver' && url.startsWith('jdbc:postgresql://')) {
+                    // 解析 jdbc:postgresql://localhost:5432/dbname
+                    const urlParts = url.replace('jdbc:postgresql://', '').split('/');
+                    if (urlParts.length >= 2) {
+                        const hostPort = urlParts[0].split(':');
+                        host = hostPort[0];
+                        port = hostPort.length > 1 ? hostPort[1] : '5432';
+                        dbName = urlParts[1].split('?')[0];
+                    }
+                } else if (dbType === 'oracle.jdbc.OracleDriver' && url.startsWith('jdbc:oracle:thin:@')) {
+                    // 解析 jdbc:oracle:thin:@localhost:1521:dbname
+                    const urlParts = url.replace('jdbc:oracle:thin:@', '').split(':');
+                    if (urlParts.length >= 3) {
+                        host = urlParts[0];
+                        port = urlParts[1];
+                        dbName = urlParts[2];
+                    }
+                } else if (dbType === 'com.microsoft.sqlserver.jdbc.SQLServerDriver' && url.startsWith('jdbc:sqlserver://')) {
+                    // 解析 jdbc:sqlserver://localhost:1433;databaseName=dbname
+                    const serverPart = url.replace('jdbc:sqlserver://', '').split(';')[0];
+                    const dbPart = url.indexOf('databaseName=') > -1 ? 
+                        url.substring(url.indexOf('databaseName=') + 'databaseName='.length) : '';
+                    
+                    if (serverPart) {
+                        const hostPort = serverPart.split(':');
+                        host = hostPort[0];
+                        port = hostPort.length > 1 ? hostPort[1] : '1433';
+                    }
+                    
+                    dbName = dbPart;
+                }
+                
+                $('#host').val(host);
+                $('#port').val(port);
+                $('#dbName').val(dbName);
+            }
+            
+            // 初始化表单
+            function initForm() {
+                $.ajax({
+                    url: '/news/config/database',
+                    type: 'GET',
+                    success: function(response) {
+                        if (response.success && response.data) {
+                            const config = response.data;
+                            $('#dataSourceEnabled').prop('checked', config.dataSourceEnabled);
+                            $('#driverClassName').val(config.driverClassName || '');
+                            $('#url').val(config.url || '');
+                            $('#username').val(config.username || '');
+                            $('#password').val(config.password || '');
+                            
+                            // 解析URL到各字段
+                            parseDbUrl(config.url);
+                            
+                            toggleDbDetailsSection();
+                        }
+                    },
+                    error: function() {
+                        showAlert('danger', '获取数据库配置失败');
+                    }
+                });
+            }
+            
+            // 显示提示消息
+            function showAlert(type, message, autoClose = true) {
+                const alertHtml = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>`;
+                
+                $('#alertContainer').html(alertHtml);
+                
+                if (autoClose) {
+                    setTimeout(function() {
+                        $('.alert').alert('close');
+                    }, 5000);
+                }
+            }
+            
+            // 切换加载状态
+            function toggleLoading(elementId, isLoading) {
+                const element = $('#' + elementId);
+                if (isLoading) {
+                    element.addClass('loading');
+                    element.find('button').prop('disabled', true);
+                } else {
+                    element.removeClass('loading');
+                    element.find('button').prop('disabled', false);
+                }
+            }
+            
+            // 初始化事件
+            $('#dataSourceEnabled').on('change', toggleDbDetailsSection);
+            toggleDbDetailsSection();
+            initForm();
+            
+            // 测试连接
+            $('#testConnectionBtn').on('click', function() {
+                if (!$('#dataSourceEnabled').is(':checked')) {
+                    showAlert('warning', '请先启用数据库连接');
+                    return;
+                }
+                
+                // 基本表单验证
+                if (!$('#dbConfigForm')[0].checkValidity()) {
+                    $('#dbConfigForm')[0].reportValidity();
+                    return;
+                }
+                
+                // 构建URL
+                buildDbUrl();
+                
+                const connectionData = {
+                    dataSourceEnabled: true,
+                    driverClassName: $('#driverClassName').val(),
+                    url: $('#url').val(),
+                    username: $('#username').val(),
+                    password: $('#password').val()
+                };
+                
+                toggleLoading('dbConfigContainer', true);
+                
+                $.ajax({
+                    url: '/news/config/database/test',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(connectionData),
+                    success: function(response) {
+                        toggleLoading('dbConfigContainer', false);
+                        
+                        if (response.success) {
+                            showAlert('success', '数据库连接测试成功！');
+                        } else {
+                            showAlert('danger', '数据库连接测试失败：' + (response.message || '未知错误'));
+                        }
+                    },
+                    error: function(xhr) {
+                        toggleLoading('dbConfigContainer', false);
+                        
+                        let errorMsg = '连接测试请求失败';
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            if (response.message) {
+                                errorMsg = response.message;
+                            }
+                        } catch (e) {}
+                        
+                        showAlert('danger', errorMsg);
+                    }
+                });
+            });
+            
+            // 保存配置
+            $('#dbConfigForm').on('submit', function(e) {
+                e.preventDefault();
+                
+                // 构建URL
+                if ($('#dataSourceEnabled').is(':checked')) {
+                    buildDbUrl();
+                }
+                
+                const configData = {
+                    dataSourceEnabled: $('#dataSourceEnabled').is(':checked'),
+                    driverClassName: $('#driverClassName').val(),
+                    url: $('#url').val(),
+                    username: $('#username').val(),
+                    password: $('#password').val()
+                };
+                
+                // 如果禁用数据库，则跳过验证
+                if (configData.dataSourceEnabled && !this.checkValidity()) {
+                    this.reportValidity();
+                    return;
+                }
+                
+                toggleLoading('dbConfigContainer', true);
+                
+                $.ajax({
+                    url: '/news/config/database',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(configData),
+                    success: function(response) {
+                        toggleLoading('dbConfigContainer', false);
+                        
+                        if (response.success) {
+                            showAlert('success', '数据库配置已保存！可能需要重启应用以应用更改。');
+                        } else {
+                            showAlert('danger', '保存配置失败：' + (response.message || '未知错误'));
+                        }
+                    },
+                    error: function(xhr) {
+                        toggleLoading('dbConfigContainer', false);
+                        
+                        let errorMsg = '保存配置请求失败';
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            if (response.message) {
+                                errorMsg = response.message;
+                            }
+                        } catch (e) {}
+                        
+                        showAlert('danger', errorMsg);
+                    }
+                });
+            });
+            
+            // 重新加载配置
+            $('#reloadBtn').on('click', function() {
+                toggleLoading('dbConfigContainer', true);
+                
+                $.ajax({
+                    url: '/news/config/reload',
+                    type: 'POST',
+                    success: function(response) {
+                        toggleLoading('dbConfigContainer', false);
+                        
+                        if (response.success) {
+                            showAlert('success', '配置已重新加载！');
+                            setTimeout(function() {
+                                location.reload();
+                            }, 1500);
+                        } else {
+                            showAlert('danger', '重新加载配置失败：' + (response.message || '未知错误'));
+                        }
+                    },
+                    error: function(xhr) {
+                        toggleLoading('dbConfigContainer', false);
+                        
+                        let errorMsg = '重新加载配置请求失败';
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            if (response.message) {
+                                errorMsg = response.message;
+                            }
+                        } catch (e) {}
+                        
+                        showAlert('danger', errorMsg);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
