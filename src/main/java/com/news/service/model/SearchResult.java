@@ -1,77 +1,80 @@
 package com.news.service.model;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.io.Serializable;
 import java.util.Date;
 
 /**
- * 搜索结果模型类
- * 表示单条搜索结果信息
+ * 搜索结果模型
  */
-@ApiModel(description = "搜索结果项")
-public class SearchResult {
-
-    @ApiModelProperty(value = "新闻ID", example = "1")
-    private Long id;
-
-    @ApiModelProperty(value = "新闻标题", example = "最新科技动态")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class SearchResult implements Serializable {
+    
+    private static final long serialVersionUID = 1L;
+    
+    @JsonIgnore
+    private String id;
     private String name;
-
-    @ApiModelProperty(value = "新闻内容摘要", example = "最近科技行业有许多突破性进展...")
-    private String content;
-
-    @ApiModelProperty(value = "创建时间", example = "2023-01-01T12:00:00.000Z")
     private Date created;
-
-    public SearchResult() {
+    private String content;
+    private double score;
+    private String highlightedContent;
+    
+    /**
+     * 创建SearchResult构建器
+     */
+    public static Builder builder() {
+        return new Builder();
     }
-
-    public SearchResult(Long id, String name, String content, Date created) {
-        this.id = id;
-        this.name = name;
-        this.content = content;
-        this.created = created;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
-    }
-
-    public Date getCreated() {
-        return created;
-    }
-
-    public void setCreated(Date created) {
-        this.created = created;
-    }
-
-    @Override
-    public String toString() {
-        return "SearchResult{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", content='" + (content != null && content.length() > 50 ? content.substring(0, 50) + "..." : content) + '\'' +
-                ", created=" + created +
-                '}';
+    
+    /**
+     * SearchResult构建器类
+     */
+    public static class Builder {
+        private String id;
+        private String name;
+        private Date created;
+        private String content;
+        private double score;
+        private String highlightedContent;
+        
+        public Builder id(String id) {
+            this.id = id;
+            return this;
+        }
+        
+        public Builder name(String name) {
+            this.name = name;
+            return this;
+        }
+        
+        public Builder created(Date created) {
+            this.created = created;
+            return this;
+        }
+        
+        public Builder content(String content) {
+            this.content = content;
+            return this;
+        }
+        
+        public Builder score(double score) {
+            this.score = score;
+            return this;
+        }
+        
+        public Builder highlightedContent(String highlightedContent) {
+            this.highlightedContent = highlightedContent;
+            return this;
+        }
+        
+        public SearchResult build() {
+            return new SearchResult(id, name, created, content, score, highlightedContent);
+        }
     }
 } 

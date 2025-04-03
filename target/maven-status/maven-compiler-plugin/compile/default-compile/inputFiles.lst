@@ -5,7 +5,8 @@ D:\DEV\news\src\main\java\com\news\service\service\SearchService.java
 D:\DEV\news\src\main\java\com\news\service\service\ConfigService.java
 D:\DEV\news\src\main\java\com\news\service\NewsServiceApplication.java
 D:\DEV\news\src\main\java\com\news\service\config\AppConfig.java
-D:\DEV\news\src\main\java\com\news\service\config\SwaggerConfig.java
+D:\DEV\news\src\main\java\com\news\service\config\DatabaseConfig.java
+D:\DEV\news\src\main\java\com\news\service\config\HealthCheckConfig.java
 D:\DEV\news\src\main\java\com\news\service\controller\HomeController.java
 D:\DEV\news\src\main\java\com\news\service\model\SearchResult.java
 D:\DEV\news\src\main\java\com\news\service\service\ConfigServiceImpl.java

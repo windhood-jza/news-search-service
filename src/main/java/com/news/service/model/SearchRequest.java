@@ -1,12 +1,16 @@
 package com.news.service.model;
 
 import lombok.Data;
+import java.io.Serializable;
 
 /**
- * 搜索请求模型类
+ * 搜索请求参数
  */
 @Data
-public class SearchRequest {
+public class SearchRequest implements Serializable {
+    
+    private static final long serialVersionUID = 1L;
+    
     /**
      * 搜索关键词，多个关键词用逗号分隔
      */

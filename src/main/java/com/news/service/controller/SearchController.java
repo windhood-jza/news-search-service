@@ -1,20 +1,14 @@
 package com.news.service.controller;
 
-import com.news.service.model.ApiResponse;
-import com.news.service.model.SearchRequest;
-import com.news.service.model.SearchResult;
+import com.news.service.model.*;
 import com.news.service.service.SearchService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,53 +16,119 @@ import java.util.Map;
  * 搜索控制器
  */
 @Slf4j
-@RestController
-@RequestMapping("/search")
-@Api(tags = "搜索API", description = "提供新闻内容搜索功能")
+@Controller
 public class SearchController {
-
+    
     private final SearchService searchService;
-
+    
+    @Autowired
     public SearchController(SearchService searchService) {
         this.searchService = searchService;
     }
-
+    
     /**
-     * 搜索新闻内容
+     * 搜索页面
      */
-    @PostMapping
-    @ApiOperation(value = "搜索新闻内容", notes = "通过关键词搜索新闻内容，支持分页和排序")
-    public ResponseEntity<?> search(
-            @ApiParam(value = "搜索请求")
-            @RequestBody SearchRequest request
-    ) {
+    @GetMapping("/search")
+    public String searchPage(Model model) {
+        model.addAttribute("searchRequest", new SearchRequest());
+        model.addAttribute("isDatabaseEnabled", searchService.isAvailable());
+        return "search";
+    }
+    
+    /**
+     * 执行搜索
+     */
+    @PostMapping("/search")
+    public String search(@ModelAttribute SearchRequest request, Model model) {
+        log.info("接收到搜索请求: {}", request);
+        
+        model.addAttribute("isDatabaseEnabled", searchService.isAvailable());
+        
         try {
-            if (!searchService.isAvailable()) {
-                return ResponseEntity.ok(ApiResponse.error("搜索服务不可用，请先配置数据库连接"));
-            }
-            
             if (request.getKeywords() == null || request.getKeywords().trim().isEmpty()) {
-                return ResponseEntity.ok(ApiResponse.error("搜索关键词不能为空"));
+                model.addAttribute("error", "请输入有效的搜索条件");
+                return "search";
             }
             
-            // 执行搜索
-            List<SearchResult> results = searchService.search(request);
+            if (!searchService.isAvailable()) {
+                model.addAttribute("error", "搜索服务不可用，请检查配置");
+                return "search";
+            }
             
-            // 获取总记录数
-            long total = searchService.count(request.getKeywords());
+            PageResult<SearchResult> results = searchService.search(request);
+            model.addAttribute("results", results);
+            model.addAttribute("searchRequest", request);
             
-            // 构建返回结果
-            Map<String, Object> data = new HashMap<>();
-            data.put("content", results);
-            data.put("totalElements", total);
-            data.put("totalPages", (total + request.getSize() - 1) / request.getSize());
-            data.put("size", request.getSize());
-            data.put("page", request.getPage());
+            log.info("搜索完成，找到 {} 条结果", results.getTotalElements());
+            return "search";
             
-            return ResponseEntity.ok(ApiResponse.success("搜索成功", data));
         } catch (Exception e) {
-            log.error("搜索失败", e);
-            return ResponseEntity.status(500).body(ApiResponse.error("搜索失败: " + e.getMessage()));
+            log.error("搜索失败: {}", e.getMessage(), e);
+            model.addAttribute("error", "搜索过程中发生错误: " + e.getMessage());
+            return "search";
+        }
+    }
+    
+    /**
+     * 搜索API接口
+     */
+    @PostMapping("/api/search")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<PageResult<SearchResult>>> searchApi(@RequestBody SearchRequest request) {
+        log.info("接收到API搜索请求: {}", request);
+        
+        try {
+            if (request.getKeywords() == null || request.getKeywords().trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("请输入有效的搜索条件"));
+            }
+            
+            if (!searchService.isAvailable()) {
+                return ResponseEntity.status(503)
+                        .body(ApiResponse.error("搜索服务不可用，请检查配置"));
+            }
+            
+            PageResult<SearchResult> results = searchService.search(request);
+            log.info("搜索完成，找到 {} 条结果", results.getTotalElements());
+            
+            return ResponseEntity.ok(ApiResponse.success(results));
+            
+        } catch (Exception e) {
+            log.error("搜索失败: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("搜索过程中发生错误: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * 获取搜索结果总数
+     */
+    @GetMapping("/api/search/count")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<Long>> count(@RequestParam String keywords) {
+        log.info("接收到计数请求: keywords={}", keywords);
+        
+        try {
+            if (keywords == null || keywords.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("请输入有效的关键词"));
+            }
+            
+            if (!searchService.isAvailable()) {
+                return ResponseEntity.status(503)
+                        .body(ApiResponse.error("搜索服务不可用，请检查配置"));
+            }
+            
+            long count = searchService.count(keywords);
+            log.info("计数完成，总共 {} 条结果", count);
+            
+            return ResponseEntity.ok(ApiResponse.success(count));
+            
+        } catch (Exception e) {
+            log.error("计数失败: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("计数过程中发生错误: " + e.getMessage()));
         }
     }
 } 

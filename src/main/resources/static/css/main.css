@@ -1,16 +1,18 @@
-/* 基础样式 */
+/* 全局样式 */
 body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background-color: #f8f9fa;
-    color: #212529;
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 1140px;
+    margin: 0 auto;
+    padding: 0 15px;
 }
 
-/* 网站头部 */
+/* 导航栏样式 */
 header {
-    background-color: #fff;
+    margin-bottom: 2rem;
 }
 
 /* 数据库状态指示器 */
@@ -19,50 +21,92 @@ header {
     align-items: center;
 }
 
-/* 卡片样式 */
+/* 搜索结果样式 */
 .card {
     margin-bottom: 1.5rem;
     border: none;
+    border-radius: 0.5rem;
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.card-header {
-    background-color: #fff;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
 }
 
-/* 搜索结果样式 */
-#searchResults .card {
-    transition: transform 0.2s;
+.card-body {
+    padding: 1.5rem;
 }
 
-#searchResults .card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+.card-title {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.card-subtitle {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.card-text {
+    color: #212529;
+    line-height: 1.6;
 }
 
 /* 分页样式 */
-.pagination .page-link {
-    color: #0d6efd;
-}
-
-.pagination .page-item.active .page-link {
-    background-color: #0d6efd;
-    border-color: #0d6efd;
+.pagination {
+    margin-top: 2rem;
 }
 
 /* 表单样式 */
-.form-control:focus, .form-select:focus {
-    border-color: #86b7fe;
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+.form-label {
+    font-weight: 500;
 }
 
-/* 按钮间距 */
-.btn-group .btn + .btn,
-.btn-group .btn + .btn-group,
-.btn-group .btn-group + .btn,
-.btn-group .btn-group + .btn-group {
-    margin-left: 0.25rem;
+/* 高亮关键词样式 */
+.highlight {
+    background-color: #ffeb3b;
+    padding: 2px 0;
+    font-weight: bold;
+    border-radius: 2px;
+}
+
+/* 搜索结果卡片中的权重分数 */
+.score-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: #007bff;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+/* 选项卡样式 */
+.nav-tabs {
+    margin-bottom: 1rem;
+}
+
+.tab-content {
+    padding: 1rem;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-top: none;
+    border-radius: 0 0 0.25rem 0.25rem;
+}
+
+/* JSON视图样式 */
+.json-view {
+    background-color: #f8f9fa;
+    border-radius: 0.25rem;
+    padding: 1rem;
+    font-family: monospace;
+    max-height: 400px;
+    overflow-y: auto;
 }
 
 /* 首页功能卡片 */

@@ -3,12 +3,12 @@ package com.news.service.config;
 import com.zaxxer.hikari.HikariDataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.PropertySources;
 import org.springframework.core.env.Environment;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
@@ -70,12 +70,8 @@ public class AppConfig {
      * 有条件地创建数据源
      */
     @Bean
+    @ConditionalOnProperty(name = "spring.datasource.enabled", havingValue = "true")
     public DataSource dataSource() {
-        if (!dataSourceEnabled) {
-            log.warn("数据库连接已禁用，搜索功能将不可用");
-            return null;
-        }
-        
         try {
             log.info("尝试创建数据库连接...");
             dataSourceInstance = new HikariDataSource();
@@ -100,17 +96,6 @@ public class AppConfig {
             log.error("创建数据库连接失败: {}", e.getMessage(), e);
             return null;
         }
-    }
-    
-    /**
-     * 有条件地创建JdbcTemplate
-     */
-    @Bean
-    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
-        if (dataSource != null) {
-            return new JdbcTemplate(dataSource);
-        }
-        return null;
     }
     
     /**

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>配置 - 新闻检索服务</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/news/css/main.css">
     <style>
         .loading {
             position: relative;
@@ -62,9 +62,9 @@
             
             <nav>
                 <ul class="nav nav-pills">
-                    <li class="nav-item"><a href="/" class="nav-link">首页</a></li>
-                    <li class="nav-item"><a href="/search-page" class="nav-link">搜索</a></li>
-                    <li class="nav-item"><a href="/config-page" class="nav-link active" aria-current="page">配置</a></li>
+                    <li class="nav-item"><a href="/news/" class="nav-link">首页</a></li>
+                    <li class="nav-item"><a href="/news/search-page" class="nav-link">搜索</a></li>
+                    <li class="nav-item"><a href="/news/config-page" class="nav-link active" aria-current="page">配置</a></li>
                 </ul>
             </nav>
         </header>
@@ -87,7 +87,7 @@
                         
                         <div id="dbDetailsSection">
                             <div class="mb-3">
-                                <label for="driverClassName" class="form-label">数据库驱动</label>
+                                <label for="driverClassName" class="form-label">数据库类型</label>
                                 <select class="form-select" id="driverClassName" name="driverClassName" required>
                                     <option value="">请选择数据库类型</option>
                                     <option value="com.mysql.cj.jdbc.Driver">MySQL</option>
@@ -98,20 +98,31 @@
                             </div>
                             
                             <div class="mb-3">
-                                <label for="url" class="form-label">数据库URL</label>
-                                <input type="text" class="form-control" id="url" name="url" placeholder="例如：jdbc:mysql://localhost:3306/news" required>
-                                <div class="form-text">格式：jdbc:mysql://主机:端口/数据库名（不同数据库类型格式不同）</div>
+                                <label for="host" class="form-label">主机地址</label>
+                                <input type="text" class="form-control" id="host" name="host" placeholder="localhost" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="port" class="form-label">端口</label>
+                                <input type="text" class="form-control" id="port" name="port" placeholder="3306" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="dbName" class="form-label">数据库名</label>
+                                <input type="text" class="form-control" id="dbName" name="dbName" placeholder="news" required>
                             </div>
                             
                             <div class="mb-3">
                                 <label for="username" class="form-label">用户名</label>
-                                <input type="text" class="form-control" id="username" name="username" required>
+                                <input type="text" class="form-control" id="username" name="username" placeholder="" required>
                             </div>
                             
                             <div class="mb-3">
                                 <label for="password" class="form-label">密码</label>
                                 <input type="password" class="form-control" id="password" name="password" required>
                             </div>
+                            
+                            <input type="hidden" id="url" name="url">
                         </div>
                         
                         <div class="d-flex gap-2">
@@ -183,10 +194,104 @@
                 }
             }
             
+            // 构建完整的数据库URL
+            function buildDbUrl() {
+                const dbType = $('#driverClassName').val();
+                const host = $('#host').val();
+                const port = $('#port').val();
+                const dbName = $('#dbName').val();
+                
+                let url = '';
+                
+                if (dbType === 'com.mysql.cj.jdbc.Driver') {
+                    url = `jdbc:mysql://${host}:${port}/${dbName}`;
+                } else if (dbType === 'org.postgresql.Driver') {
+                    url = `jdbc:postgresql://${host}:${port}/${dbName}`;
+                } else if (dbType === 'oracle.jdbc.OracleDriver') {
+                    url = `jdbc:oracle:thin:@${host}:${port}:${dbName}`;
+                } else if (dbType === 'com.microsoft.sqlserver.jdbc.SQLServerDriver') {
+                    url = `jdbc:sqlserver://${host}:${port};databaseName=${dbName}`;
+                }
+                
+                $('#url').val(url);
+                return url;
+            }
+
+            // 根据数据库类型设置默认端口
+            $('#driverClassName').on('change', function() {
+                const dbType = $(this).val();
+                let defaultPort = '3306';
+                
+                if (dbType === 'org.postgresql.Driver') {
+                    defaultPort = '5432';
+                } else if (dbType === 'oracle.jdbc.OracleDriver') {
+                    defaultPort = '1521';
+                } else if (dbType === 'com.microsoft.sqlserver.jdbc.SQLServerDriver') {
+                    defaultPort = '1433';
+                }
+                
+                if (!$('#port').val()) {
+                    $('#port').val(defaultPort);
+                }
+            });
+            
+            // 解析数据库URL到各个字段
+            function parseDbUrl(url) {
+                if (!url) return;
+                
+                let host = '', port = '', dbName = '';
+                const dbType = $('#driverClassName').val();
+                
+                if (dbType === 'com.mysql.cj.jdbc.Driver' && url.startsWith('jdbc:mysql://')) {
+                    // 解析 jdbc:mysql://localhost:3306/dbname
+                    const urlParts = url.replace('jdbc:mysql://', '').split('/');
+                    if (urlParts.length >= 2) {
+                        const hostPort = urlParts[0].split(':');
+                        host = hostPort[0];
+                        port = hostPort.length > 1 ? hostPort[1] : '3306';
+                        dbName = urlParts[1].split('?')[0];
+                    }
+                } else if (dbType === 'org.postgresql.Driver' && url.startsWith('jdbc:postgresql://')) {
+                    // 解析 jdbc:postgresql://localhost:5432/dbname
+                    const urlParts = url.replace('jdbc:postgresql://', '').split('/');
+                    if (urlParts.length >= 2) {
+                        const hostPort = urlParts[0].split(':');
+                        host = hostPort[0];
+                        port = hostPort.length > 1 ? hostPort[1] : '5432';
+                        dbName = urlParts[1].split('?')[0];
+                    }
+                } else if (dbType === 'oracle.jdbc.OracleDriver' && url.startsWith('jdbc:oracle:thin:@')) {
+                    // 解析 jdbc:oracle:thin:@localhost:1521:dbname
+                    const urlParts = url.replace('jdbc:oracle:thin:@', '').split(':');
+                    if (urlParts.length >= 3) {
+                        host = urlParts[0];
+                        port = urlParts[1];
+                        dbName = urlParts[2];
+                    }
+                } else if (dbType === 'com.microsoft.sqlserver.jdbc.SQLServerDriver' && url.startsWith('jdbc:sqlserver://')) {
+                    // 解析 jdbc:sqlserver://localhost:1433;databaseName=dbname
+                    const serverPart = url.replace('jdbc:sqlserver://', '').split(';')[0];
+                    const dbPart = url.indexOf('databaseName=') > -1 ? 
+                        url.substring(url.indexOf('databaseName=') + 'databaseName='.length) : '';
+                    
+                    if (serverPart) {
+                        const hostPort = serverPart.split(':');
+                        host = hostPort[0];
+                        port = hostPort.length > 1 ? hostPort[1] : '1433';
+                    }
+                    
+                    dbName = dbPart;
+                }
+                
+                $('#host').val(host);
+                $('#port').val(port);
+                $('#dbName').val(dbName);
+            }
+            
             // 初始化表单
             function initForm() {
                 $.ajax({
-                    url: '/config/database',
+                    url: '/news/config/database',
                     type: 'GET',
                     success: function(response) {
                         if (response.success && response.data) {
@@ -196,6 +301,9 @@
                             $('#url').val(config.url || '');
                             $('#username').val(config.username || '');
                             $('#password').val(config.password || '');
+                            
+                            // 解析URL到各字段
+                            parseDbUrl(config.url);
                             
                             toggleDbDetailsSection();
                         }
@@ -252,6 +360,9 @@
                     return;
                 }
                 
+                // 构建URL
+                buildDbUrl();
+                
                 const connectionData = {
                     dataSourceEnabled: true,
                     driverClassName: $('#driverClassName').val(),
@@ -263,7 +374,7 @@
                 toggleLoading('dbConfigContainer', true);
                 
                 $.ajax({
-                    url: '/config/database/test',
+                    url: '/news/config/database/test',
                     type: 'POST',
                     contentType: 'application/json',
                     data: JSON.stringify(connectionData),
@@ -296,6 +407,11 @@
             $('#dbConfigForm').on('submit', function(e) {
                 e.preventDefault();
                 
+                // 构建URL
+                if ($('#dataSourceEnabled').is(':checked')) {
+                    buildDbUrl();
+                }
+                
                 const configData = {
                     dataSourceEnabled: $('#dataSourceEnabled').is(':checked'),
                     driverClassName: $('#driverClassName').val(),
@@ -313,7 +429,7 @@
                 toggleLoading('dbConfigContainer', true);
                 
                 $.ajax({
-                    url: '/config/database',
+                    url: '/news/config/database',
                     type: 'POST',
                     contentType: 'application/json',
                     data: JSON.stringify(configData),
@@ -347,7 +463,7 @@
                 toggleLoading('dbConfigContainer', true);
                 
                 $.ajax({
-                    url: '/config/reload',
+                    url: '/news/config/reload',
                     type: 'POST',
                     success: function(response) {
                         toggleLoading('dbConfigContainer', false);

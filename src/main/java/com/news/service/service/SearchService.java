@@ -1,5 +1,6 @@
 package com.news.service.service;
 
+import com.news.service.model.PageResult;
 import com.news.service.model.SearchRequest;
 import com.news.service.model.SearchResult;
 import java.util.List;
@@ -13,9 +14,9 @@ public interface SearchService {
      * 搜索新闻内容
      * 
      * @param request 搜索请求
-     * @return 搜索结果列表
+     * @return 分页搜索结果
      */
-    List<SearchResult> search(SearchRequest request);
+    PageResult<SearchResult> search(SearchRequest request);
     
     /**
      * 获取搜索结果总数

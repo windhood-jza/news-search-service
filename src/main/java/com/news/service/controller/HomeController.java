@@ -5,6 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.servlet.ModelAndView;
+
+import javax.servlet.http.HttpServletRequest;
 
 /**
  * 首页控制器
@@ -20,9 +24,9 @@ public class HomeController {
     }
     
     /**
-     * 首页
+     * 首页 - 根路径
      */
-    @GetMapping("/")
+    @GetMapping({"/", "/news", "/news/"})
     public String home(Model model) {
         addDatabaseStatus(model);
         return "index";
@@ -31,7 +35,7 @@ public class HomeController {
     /**
      * 搜索页面
      */
-    @GetMapping("/search-page")
+    @GetMapping({"/search-page", "/news/search-page"})
     public String searchPage(Model model) {
         addDatabaseStatus(model);
         return "search";
@@ -40,7 +44,7 @@ public class HomeController {
     /**
      * 配置页面
      */
-    @GetMapping("/config-page")
+    @GetMapping({"/config-page", "/news/config-page"})
     public String configPage(Model model) {
         addDatabaseStatus(model);
         
@@ -53,6 +57,16 @@ public class HomeController {
         }
         
         return "config";
+    }
+    
+    /**
+     * 根路径重定向
+     * 用于处理不同上下文路径的访问
+     */
+    @GetMapping("/**/config-page")
+    public String configPageRedirect(HttpServletRequest request) {
+        log.info("重定向配置页面请求：{}", request.getRequestURI());
+        return "redirect:/config-page";
     }
     
     /**

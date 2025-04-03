@@ -122,7 +122,7 @@ public class ConfigServiceImpl implements ConfigService {
     public DatabaseConfig getCurrentDatabaseConfig() {
         try {
             // 检查配置文件是否存在
-            File configFile = new File(configFilePath);
+            File configFile = new File(configFilePath.trim());
             if (!configFile.exists()) {
                 log.warn("配置文件不存在: {}", configFilePath);
                 return new DatabaseConfig();
@@ -130,7 +130,9 @@ public class ConfigServiceImpl implements ConfigService {
             
             // 读取配置
             Properties properties = new Properties();
-            properties.load(Files.newInputStream(Paths.get(configFilePath)));
+            try (java.io.FileInputStream fis = new java.io.FileInputStream(configFile)) {
+                properties.load(fis);
+            }
             
             boolean enabled = Boolean.parseBoolean(properties.getProperty("spring.datasource.enabled", "false"));
             String driverClassName = properties.getProperty("spring.datasource.driver-class-name", "");
@@ -139,7 +141,13 @@ public class ConfigServiceImpl implements ConfigService {
             String password = properties.getProperty("spring.datasource.password", "");
             
             // 创建并返回配置对象
-            return new DatabaseConfig(enabled, driverClassName, url, username, password);
+            DatabaseConfig config = new DatabaseConfig();
+            config.setDataSourceEnabled(enabled);
+            config.setDriverClassName(driverClassName);
+            config.setUrl(url);
+            config.setUsername(username);
+            config.setPassword(password);
+            return config;
         } catch (IOException e) {
             log.error("读取数据库配置失败: {}", e.getMessage(), e);
             return new DatabaseConfig();

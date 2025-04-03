@@ -5,9 +5,6 @@ import com.news.service.model.ApiResponse;
 import com.news.service.model.DatabaseConfig;
 import com.news.service.model.DatabaseInfo;
 import com.news.service.service.ConfigService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.ResponseEntity;
@@ -15,14 +12,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * 配置控制器
  */
 @Slf4j
 @RestController
-@RequestMapping("/config")
-@Api(tags = "配置API", description = "提供数据库配置功能")
+@RequestMapping({"/config", "/news/config"})
 public class ConfigController {
     
     private final ConfigService configService;
@@ -40,9 +37,7 @@ public class ConfigController {
      * 更新数据库配置
      */
     @PostMapping("/database")
-    @ApiOperation(value = "更新数据库配置", notes = "设置数据库连接信息并保存到配置文件")
     public ResponseEntity<ApiResponse<Map<String, String>>> updateDatabaseConfig(
-            @ApiParam(value = "数据库配置")
             @RequestBody DatabaseConfig config
     ) {
         try {
@@ -50,7 +45,7 @@ public class ConfigController {
             
             Map<String, String> data = new HashMap<>();
             data.put("configFile", configFile);
-            data.put("message", "配置已保存并尝试即时应用。如果配置未生效，请使用重载配置功能。");
+            data.put("message", "配置已保存。请使用重启功能使配置生效。");
             
             return ResponseEntity.ok(ApiResponse.success("数据库配置已保存", data));
         } catch (Exception e) {
@@ -60,12 +55,36 @@ public class ConfigController {
     }
     
     /**
+     * 重启应用
+     */
+    @PostMapping("/restart")
+    public ResponseEntity<ApiResponse<Void>> restartApplication() {
+        try {
+            log.info("准备重启应用...");
+            
+            // 使用异步方式重启应用，确保响应能够返回给客户端
+            CompletableFuture.runAsync(() -> {
+                try {
+                    Thread.sleep(1000); // 等待1秒，确保响应能够返回
+                    applicationContext.close();
+                    System.exit(0); // 退出应用，依赖外部进程管理器（如 Tomcat）重启应用
+                } catch (Exception e) {
+                    log.error("重启应用失败", e);
+                }
+            });
+            
+            return ResponseEntity.ok(ApiResponse.success("应用正在重启，请稍后刷新页面", null));
+        } catch (Exception e) {
+            log.error("触发应用重启失败", e);
+            return ResponseEntity.status(500).body(ApiResponse.error("触发应用重启失败: " + e.getMessage()));
+        }
+    }
+    
+    /**
      * 测试数据库连接
      */
     @PostMapping("/database/test")
-    @ApiOperation(value = "测试数据库连接", notes = "测试数据库连接是否有效")
     public ResponseEntity<ApiResponse<Map<String, String>>> testDatabaseConnection(
-            @ApiParam(value = "数据库配置")
             @RequestBody DatabaseConfig config
     ) {
         try {
@@ -89,7 +108,6 @@ public class ConfigController {
      * 获取当前数据库配置
      */
     @GetMapping("/database")
-    @ApiOperation(value = "获取当前数据库配置", notes = "获取当前使用的数据库配置信息")
     public ResponseEntity<ApiResponse<DatabaseConfig>> getCurrentDatabaseConfig() {
         try {
             DatabaseConfig config = configService.getCurrentDatabaseConfig();
@@ -104,7 +122,6 @@ public class ConfigController {
      * 获取数据库详细信息
      */
     @GetMapping("/database/info")
-    @ApiOperation(value = "获取数据库详细信息", notes = "获取当前连接的数据库详细信息")
     public ResponseEntity<ApiResponse<DatabaseInfo>> getDatabaseInfo() {
         try {
             DatabaseInfo info = configService.getDatabaseInfo();
@@ -123,7 +140,6 @@ public class ConfigController {
      * 重新加载配置
      */
     @PostMapping("/reload")
-    @ApiOperation(value = "重新加载配置", notes = "尝试在不重启应用的情况下重新加载配置")
     public ResponseEntity<ApiResponse<Void>> reloadConfiguration() {
         try {
             log.info("手动触发配置重新加载...");
